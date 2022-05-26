@@ -8,7 +8,7 @@ def ingestData(data_dir):
         'patient_id': [],
         'num_locations': [],
         'sampling_frequency': [],
-        'audio_files': [],
+        #'audio_files': [],
         'recording_locations': [],
         #begin named features
         'age': [],
@@ -41,7 +41,7 @@ def ingestData(data_dir):
         'sex': '#Sex',
         'height': '#Height',
         'weight': '#Weight',
-        'pregnancy_status': '#Pregnancy Status',
+        'pregnancy_status': '#Pregnancy status',
         'murmur': '#Murmur',
         'murmur_locations': '#Murmur locations',
         'most_audible_location': '#Most audible location',
@@ -61,7 +61,7 @@ def ingestData(data_dir):
     }
 
     #create polars DataFrame to store the data
-    master_features = pl.DataFrame(columns=feature_list.keys())
+    master_features = pl.DataFrame()
 
     print("Ingesting data from ", data_dir  )
     
@@ -70,6 +70,8 @@ def ingestData(data_dir):
         if file.endswith(".txt"):
             # Open text file
             with open(data_dir + "/" + file, "r") as f:
+
+                print("opened " + file)
 
                 patient_features = feature_list
                 
@@ -87,30 +89,60 @@ def ingestData(data_dir):
                         patient_features['patient_id'].append(patient_id)
                         patient_features['num_locations'].append(num_locations)
                         patient_features['sampling_frequency'].append(sampling_frequency)
+                        print('complete: read from first line')
 
-                    #get audio file names and locations, store as nested lists. also store locations in list of all recording locations
-                    elif line_number in [1, num_locations]:
+                    #get audio file names and locations, store as list of tuples. also store locations in list of all recording locations
+                    elif line_number in range(1, num_locations+1):
                         moving_line = line.strip().split(" ")
                         current_recording_location, current_audio_file = moving_line[0], moving_line[2]
-                        patient_audio_files.append([current_audio_file, current_recording_location])
+                        patient_audio_files.append((current_audio_file, current_recording_location))
                         patient_recording_locations.append(current_recording_location)
+                        print('complete: recorded an audio file name')
 
                     #get named features
                     elif line_number>num_locations:
                         for current_named_feature in feature_names.keys():
                             if line.startswith(feature_names[current_named_feature] + ":"):
                                 patient_features[current_named_feature].append(line.split(': ', 1)[1].strip())
+                                print('complete: recorded a named feature')
 
                 #push to patient_features all features that have not yet been stored there
-                patient_features['audio_files'].append(patient_audio_files)
+                #patient_features['audio_files'].append(patient_audio_files)
                 patient_features['recording_locations'].append(patient_recording_locations)
 
+                print('finished reading from ' + file)
+                print(patient_features)
+
+                #return patient_features
+
                 #add patient_features to master_features
-                master_features.vstack(pl.DataFrame(patient_features))
+                df = pl.DataFrame(patient_features)
+                print('created a dataframe from patient data')
+
+                if master_features.is_empty():
+                    master_features = pl.DataFrame(patient_features)
+                else:
+                    master_features.vstack(pl.DataFrame(patient_features), True)
+
+                # master_features.with_columns(
+                #     [
+                #         #pl.when(master_features.is_empty()).then(master_features.replace(master_features.columns, pl.DataFrame(patient_features).get_columns())).otherwise(master_features.vstack(pl.DataFrame(patient_features)))
+                #         pl.when(master_features.is_empty())
+                #         .then(
+                #             master_features.drop(name)
+                #         )
+                #         .otherwise(master_features.vstack(pl.DataFrame(patient_features)))
+
+                #     ]
+                # )
+
+
+                # master_features.vstack(pl.DataFrame(patient_features))
+                print('added patient features to master features')
 
     #Create a polars object to store the data
     #df = pl.DataFrame(feature_list)
-    
+    print('finished reading from all files')
     return df
 
 #PURPOSE:   produces the spectrogram of the specified .wav file
