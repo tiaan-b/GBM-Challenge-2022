@@ -3,7 +3,7 @@ import polars as pl
 import numpy
 
 def ingestData(data_dir):
-    #feature_list stores all features and feature values as key-value pairs: key = (feature, str), value = (feature value, list)
+    #(template) stores all features and feature values as key-value pairs: key = (feature, str), value = (feature value, list)
     feature_list = {
         'patient_id': [],
         'num_locations': [],
@@ -60,6 +60,9 @@ def ingestData(data_dir):
         'additional_id': '#Additional ID'
     }
 
+    #create polars DataFrame to store the data
+    master_features = pl.DataFrame(columns=feature_list.keys())
+
     print("Ingesting data from ", data_dir  )
     
     # Loop through all text files in the data directory
@@ -67,9 +70,11 @@ def ingestData(data_dir):
         if file.endswith(".txt"):
             # Open text file
             with open(data_dir + "/" + file, "r") as f:
+
+                patient_features = feature_list
                 
                 #create temporary containers to store features with multiple values
-                patient_audio_files = {}
+                patient_audio_files = []
                 patient_recording_locations = []
 
                 #iterate through each line in file
@@ -79,29 +84,32 @@ def ingestData(data_dir):
                     if line_number==0:
                         first_line = line.split(" ")
                         patient_id, num_locations, sampling_frequency = int(first_line[0]), int(first_line[1]), int(first_line[2])
-                        feature_list['patient_id'].append(patient_id)
-                        feature_list['num_locations'].append(num_locations)
-                        feature_list['sampling_frequency'].append(sampling_frequency)
+                        patient_features['patient_id'].append(patient_id)
+                        patient_features['num_locations'].append(num_locations)
+                        patient_features['sampling_frequency'].append(sampling_frequency)
 
-                    #get audio file names and locations, store as key-value pairs. also store locations in list of all recording locations
+                    #get audio file names and locations, store as nested lists. also store locations in list of all recording locations
                     elif line_number in [1, num_locations]:
                         moving_line = line.strip().split(" ")
                         current_recording_location, current_audio_file = moving_line[0], moving_line[2]
-                        patient_audio_files[current_audio_file] = current_recording_location
+                        patient_audio_files.append([current_audio_file, current_recording_location])
                         patient_recording_locations.append(current_recording_location)
 
                     #get named features
                     elif line_number>num_locations:
                         for current_named_feature in feature_names.keys():
                             if line.startswith(feature_names[current_named_feature] + ":"):
-                                feature_list[current_named_feature].append(line.split(': ', 1)[1].strip())
+                                patient_features[current_named_feature].append(line.split(': ', 1)[1].strip())
 
-                #push to feature_list all features that have not yet been stored there
-                feature_list['audio_files'].append(patient_audio_files)
-                feature_list['recording_locations'].append(patient_recording_locations)
+                #push to patient_features all features that have not yet been stored there
+                patient_features['audio_files'].append(patient_audio_files)
+                patient_features['recording_locations'].append(patient_recording_locations)
+
+                #add patient_features to master_features
+                master_features.vstack(pl.DataFrame(patient_features))
 
     #Create a polars object to store the data
-    df = pl.DataFrame(feature_list)
+    #df = pl.DataFrame(feature_list)
     
     return df
 
