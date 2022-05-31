@@ -3,7 +3,7 @@ import polars as pl
 import numpy as np
 import helpers.audio_tools as adt
 
-def ingestData(data_dir, nan, encode=False):
+def ingestData(data_dir, nan, encode_features=False):
     #feature_list stores all features and feature values as key-value pairs: key = (feature, str), value = (feature value, list)
     feature_list = {
         'patient_id':           [],
@@ -93,7 +93,7 @@ def ingestData(data_dir, nan, encode=False):
                         current_recording_location, current_audio_file = moving_line[0], moving_line[2]
 
                         #encode features
-                        if encode:
+                        if encode_features==True:
                             current_recording_location = encode['recording_locations'][current_recording_location]
 
                         patient_audio_files.append(current_audio_file)
@@ -109,7 +109,7 @@ def ingestData(data_dir, nan, encode=False):
                                     val = val.split('+')
 
                                 #encode features
-                                if encode:
+                                if encode_features==True:
                                     if current_named_feature in ['height', 'weight']: #convert to int
                                         if val=='nan':
                                             val = nan
@@ -138,13 +138,15 @@ def ingestData(data_dir, nan, encode=False):
 #TODO: when exploding audio,files, only some locations have murmurs, address this
 
 #PURPOSE:   load training data for input into ML model
-#PARAMS:    data_dir    str         path to directory containing training data files
-#           features    list(str)   list of features to pass to ML model
+#PARAMS:    data_dir            str         path to directory containing training data files
+#           features            list(str)   list of features to pass to ML model
+#           nan                 any         value to encode 'nan' entries as
+#           encode_features     Bool        [OPTIONAL] whether to encode features as numbers: default=False
 #RETURNS:   pl.DataFrame    dataframe storing spectrograms and features
-def load_training_data(features, data_dir, nan, encode=False):
+def load_training_data(features, data_dir, nan, encode_features=False):
 
     #load data into dataframe
-    df = ingestData(data_dir, nan, encode=encode)
+    df = ingestData(data_dir, nan, encode_features=encode_features)
 
     #interpret features=['*']
     if features==['*']:
