@@ -3,6 +3,59 @@ import polars as pl
 import numpy as np
 import helpers.audio_tools as adt
 
+def ingestDataV2(data_dir):
+    clinical_data = {}
+    clinical_iterables = {}
+
+    data = clinical_data.copy()
+    iterables = clinical_iterables.copy()
+
+    # Loop through all text files in the data directory
+    for file in os.listdir(data_dir):
+        if file.endswith(".txt"):
+            # Open text file
+            with open(data_dir + "/" + file, "r") as f:
+
+                #create lists to store data with multiple values per file
+                f_audio_files = []
+                f_recording_locations = []
+
+                #iterate through all lines in file
+                for line_number, line in enumerate(f):
+                    
+                    #get info from first line: first number is patient_id, second number is num_locations, third number is sampling_frequency
+                    if line_number==0:
+                        first_line = line.split(" ")
+                        patient_id, num_locations, sampling_frequency = int(first_line[0]), int(first_line[1]), int(first_line[2])
+                        data['patient_id'].append(patient_id)
+                        data['num_locations'].append(num_locations)
+                        data['sampling_frequency'].append(sampling_frequency)
+
+                    #get audio file names (3rd word in line) and recording locations (1st word in line)
+                    elif line_number in range(1, num_locations+1):
+                        moving_line = line.strip().split(' ')
+                        f_audio_files.append(moving_line[2])
+                        f_recording_locations.append(moving_line[0])
+
+                    #get iterable data
+                    elif line_number>num_locations:
+                        for iterable, txt_rep in iterables.items():
+                            if txt_rep in line:
+                                data[iterable].append(line.split(':', 1)[1].strip())
+                                break
+                    
+                #explode data 
+                for
+
+
+                for name, values in enumerate(f_data):
+                    if name not in ['audio_files', 'recording_locations']:
+                        values.extend([values[0] for x in range(num_recordings[0]-1)])
+
+
+                    
+
+##########################################################################################
 def ingestData(data_dir, nan, encode_features=False):
     #feature_list stores all features and feature values as key-value pairs: key = (feature, str), value = (feature value, list)
     feature_list = {
@@ -132,6 +185,10 @@ def ingestData(data_dir, nan, encode_features=False):
 
     #Create a dataframe to store the data
     df = pl.DataFrame(feature_list)
+
+    #######################
+
+    #######################
     
     return df
 
@@ -143,7 +200,9 @@ def ingestData(data_dir, nan, encode_features=False):
 #           nan                 any         value to encode 'nan' entries as
 #           encode_features     Bool        [OPTIONAL] whether to encode features as numbers: default=False
 #RETURNS:   pl.DataFrame    dataframe storing spectrograms and features
-def load_training_data(features, data_dir, nan, encode_features=False):
+def load_training_data(features, data_dir, df_dir, nan, encode_features=False):
+
+    
 
     #load data into dataframe
     df = ingestData(data_dir, nan, encode_features=encode_features)
