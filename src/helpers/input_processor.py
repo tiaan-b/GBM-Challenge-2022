@@ -5,9 +5,10 @@ import numpy as np
 import helpers.audio_tools as adt
 from .lut import clinical_iterables, clinical_data
 import copy 
+import tqdm
 
 
-def ingestData(data_dir):
+def ingest_data(data_dir):
     print("Ingesting data from ", data_dir  )
     # we use the deepcopy function to avoid overwriting the original clinical_iterables
     # otherwise this creates a super hard to find bug where running the code multiple times
@@ -45,76 +46,30 @@ def ingestData(data_dir):
     df = pl.DataFrame(data)
     return df
 
-#PURPOSE:   load training data for input into ML model
-#PARAMS:    data_dir    str         path to directory containing training data files
-#           features    list(str)   list of features to pass to ML model
-#RETURNS:   pl.DataFrame    dataframe storing spectrograms and features
-def load_training_data(features, data_dir, nan, encode=False):
+def files_to_spectro(fileArray, path="", sr=4000):
+    print("Generating spectrograms...")
+    length = 0
+    spectros = []
 
-    #load data into dataframe
-    df = ingestData(data_dir, nan, encode=encode)
+    #get length of nested array
+    for array in fileArray:
+        length += len(array)
 
-    #interpret features=['*']
-    if features==['*']:
-        features = df.columns
+    progress = tqdm.tqdm(total=length, desc="Generating spectrograms")
+    for array in fileArray:
+        patientSpectros = []
+        for file in array:
+            spectro = adt.wav_to_spectro(path + "/" + file, sr=sr)
+            patientSpectros.append(spectro)
+            progress.update(1)
+        spectros.append(patientSpectros)
+    progress.close()
 
-    #get the spectrograms for each wav file, add as column to df
-    df = df.explode('audio_files').with_column(
-        pl.struct([pl.col('audio_files').str.replace(r"^", data_dir + '/').alias('file_paths'), 'sampling_frequency']) #specifiy the path to the wav files
-        .apply(lambda x: adt.wav_to_spectro(x['file_paths'], x['sampling_frequency'])).alias('spectrogram') #call wav_to_spectro for each wav file
-    )
+    return spectros
 
-    #get the spectrograms with the desired features
-    out = df.select(pl.col(['spectrogram', *features]))
-
-    return out
-
-#PURPOSE:   loads an invertable dictionary that allows for encoding/decoding patient features as numbers
-#PARAMS:    nan     any     value to encode 'nan' entries as
-#RETURNS:   tuple - a tuple containing the following elements:
-#               dict - a dict object used to encode features. Each key stores the name of a feature as a string, and the corresponding value is a dict object (where each key is a possible feature_value stored as a str, and the corresponding value is a number used to encode for the feature_value)
-#               dict - a dict object used to decode features. Each key stores the name of a feature as a string, and the corresponding value is a dict object (where each key is a number used to encode for a feature_value, and the corresponding value is the feature_value stored as a str)
-def load_cipher(nan):
-    encode = {
-        'recording_locations':  {'nan': nan, 'PV': 0, 'TV': 1, 'AV': 2, 'MV': 3, 'Phc': 4},
-        'age':                  {'nan': nan, 'Neonate': 2, 'Infant': 26, 'Child': 6*52, 'Adolescent': 15*52, 'Young Adult': 20*52}, #represent each age group as the approximate number of weeks for the middle of the age group
-        'sex':                  {'nan': nan, 'Male': 0, 'Female': 1},
-        'pregnancy_status':     {'nan': nan, 'True': 1, 'False': 0},
-        'murmur':               {'nan': nan, 'Present': 1, 'Absent': 0, 'Unknown': 2},
-        'murmur_locations':     {'nan': nan, 'PV': 0, 'TV': 1, 'AV': 2, 'MV': 3, 'Phc': 4},
-        'most_audible_location':{'nan': nan, 'PV': 0, 'TV': 1, 'AV': 2, 'MV': 3, 'Phc': 4},
-        'sys_mur_timing':       {'nan': nan, 'Early-systolic': 0, 'Holosystolic': 1, 'Mid-systolic': 2, 'Late-systolic': 3},
-        'sys_mur_shape':        {'nan': nan, 'Crescendo': 0, 'Decrescendo': 1, 'Diamond': 2, 'Plateau': 3},
-        'sys_mur_pitch':        {'nan': nan, 'Low': 0, 'Medium': 1, 'High': 2},
-        'sys_mur_grading':      {'nan': nan, 'I/VI': 0, 'II/VI': 1, 'III/VI': 2},
-        'sys_mur_quality':      {'nan': nan, 'Blowing': 0, 'Harsh': 1, 'Musical': 2},
-        'dia_mur_timing':       {'nan': nan, 'Early-diastolic': 0, 'Holodiastolic': 1, 'Mid-diastolic': 2},
-        'dia_mur_shape':        {'nan': nan, 'Crescendo': 0, 'Decrescendo': 1, 'Diamond': 2, 'Plateau': 3}, #note: only decresendo and plateau are actually used, other items are included for consistency with 'systolic murmur shape'
-        'dia_mur_pitch':        {'nan': nan, 'Low': 0, 'Medium': 1, 'High': 2},
-        'dia_mur_grading':      {'nan': nan, 'I/IV': 0, 'II/IV': 1, 'III/IV': 2},
-        'dia_mur_quality':      {'nan': nan, 'Blowing': 0, 'Harsh': 1, 'Musical': 2}, #note: only blowing and harsh are actually used, other items are included for consistency with 'systolic murmur quality'
-        'outcome':              {'nan': nan, 'Abnormal': 0, 'Normal': 1}
-    }
-
-    decode = {}
-    for feature_name, feature_values in encode.items():
-        decode[feature_name] = invert_dict(feature_values)
-
-    return encode, decode
+            
 
 
-#PURPOSE:   inverts a dict object that obeys one-to-one mapping of key-value pairs; the key and value of any given original key-value pair are the value and key of the new key-value pair, respectively.
-#PARAMS:    dict_in     dict    the original dict object that is to be inverted
-#RETURNS:   dict - the inverted dict object
-def invert_dict(dict_in):
-    #check that dict_in obeys one to one mapping
-    keys_in = dict_in.keys()
-    values_in = dict_in.values()
-    if not (len(keys_in)==len(set(keys_in)) and len(values_in)==len(set(values_in))):
-        raise Exception('The inputted dict object does not obey one to one mapping of key-value pairs')
-
-    dict_out = {}
-    for key, value in dict_in.items():
-        dict_out[value] = key
     
-    return dict_out
+
+    
