@@ -3,18 +3,18 @@ from pydoc import cli
 import polars as pl
 import numpy as np
 import helpers.audio_tools as adt
-from .lut import clinical_iterables, clinical_data
+from .lut import clinical_iterables, clinical_data, data_cipher
 import copy 
 import tqdm
 
 
-def ingest_data(data_dir, cache_folder):
+def ingest_data(data_dir, cache_folder, encoded=False):
 
     cache = 'ingested_data.json'
     
-    #check if data has already been ingested
+    #check if data has already been ingested and stored in cache
     os.makedirs(cache_folder, exist_ok=True)
-    data_is_saved = __check_cache(data_dir, cache_folder, cache)
+    data_is_saved = __checkCache(data_dir, cache_folder, cache)
     
     #load df from save file if it exists, otherwise generate df from raw data
     if data_is_saved:
@@ -79,7 +79,11 @@ def ingest_data(data_dir, cache_folder):
         #store data as a dataframe
         df = pl.DataFrame(data)
         df.write_json(cache_folder + '/' + cache)
-        
+
+    if encoded:
+        encoded_data = encodeData(df.to_dict())
+        df = pl.DataFrame(encoded_data)
+
     return df
 
 def files_to_spectro(fileArray, path="", output_folder="", sr=4000):
@@ -121,7 +125,7 @@ def files_to_spectro(fileArray, path="", output_folder="", sr=4000):
 
     return spectros
 
-def __check_cache(data_dir, cache_folder, cache):
+def __checkCache(data_dir, cache_folder, cache):
     data_is_saved = False
     #check if save file exists
     if cache in os.listdir(cache_folder):
@@ -134,3 +138,24 @@ def __check_cache(data_dir, cache_folder, cache):
         if set(saved_audio_files) == set(desired_audio_files) and set(desired_spectros).issubset(set(saved_spectros)):
             data_is_saved = True
     return data_is_saved
+
+def encodeData(data):
+    working_data = data.copy()
+    cipher = data_cipher.copy()
+
+    #cast numeric data to float type
+    # working_data['height'] = [float(x) for x in working_data['height']]
+    # working_data['weight'] = [float(x) for x in working_data['weight']]
+    for name in ['patient_id', 'num_locations', 'sampling_frequency', 'height', 'weight', 'additional_id']:
+        working_data[name] = [float(x) for x in working_data[name]]
+
+    #for each entry in data['murmur_locations']: split into list, then encode each element of list using cipher
+    mod_entry = lambda entry: [cipher['murmur_locations'][y] for y in entry.strip().split('+')]
+    working_data['murmur_locations'] = [mod_entry(x) for x in working_data['murmur_locations']]
+
+    #encode remaining data
+    for name in cipher:
+        if not name=='murmur_locations':
+            working_data[name] = [cipher[name][x] for x in working_data[name]]
+
+    return working_data

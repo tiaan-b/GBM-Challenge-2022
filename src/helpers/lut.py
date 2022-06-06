@@ -58,22 +58,23 @@ clinical_iterables = {
 }
 
 data_cipher = {
-        'recording_locations':  {'PV': 0, 'TV': 1, 'AV': 2, 'MV': 3, 'Phc': 4},
-        'age':                  {'Neonate': 2, 'Infant': 26, 'Child': 6*52, 'Adolescent': 15*52, 'Young Adult': 20*52}, #represent each age group as the approximate number of weeks for the middle of the age group
-        'sex':                  {'Male': 0, 'Female': 1},
-        'pregnancy_status':     {'True': 1, 'False': 0},
-        'murmur':               {'Present': 1, 'Absent': 0, 'Unknown': 2},
-        'murmur_locations':     {'PV': 0, 'TV': 1, 'AV': 2, 'MV': 3, 'Phc': 4},
-        'most_audible_location':{'PV': 0, 'TV': 1, 'AV': 2, 'MV': 3, 'Phc': 4},
-        'sys_mur_timing':       {'Early-systolic': 0, 'Holosystolic': 1, 'Mid-systolic': 2, 'Late-systolic': 3},
-        'sys_mur_shape':        {'Crescendo': 0, 'Decrescendo': 1, 'Diamond': 2, 'Plateau': 3},
-        'sys_mur_pitch':        {'Low': 0, 'Medium': 1, 'High': 2},
-        'sys_mur_grading':      {'I/VI': 0, 'II/VI': 1, 'III/VI': 2},
-        'sys_mur_quality':      {'Blowing': 0, 'Harsh': 1, 'Musical': 2},
-        'dia_mur_timing':       {'Early-diastolic': 0, 'Holodiastolic': 1, 'Mid-diastolic': 2},
-        'dia_mur_shape':        {'Crescendo': 0, 'Decrescendo': 1, 'Diamond': 2, 'Plateau': 3}, #note: only decresendo and plateau are actually used, other items are included for consistency with 'systolic murmur shape'
-        'dia_mur_pitch':        {'Low': 0, 'Medium': 1, 'High': 2},
-        'dia_mur_grading':      {'I/IV': 0, 'II/IV': 1, 'III/IV': 2},
-        'dia_mur_quality':      {'Blowing': 0, 'Harsh': 1, 'Musical': 2}, #note: only blowing and harsh are actually used, other items are included for consistency with 'systolic murmur quality'
-        'outcome':              {'Abnormal': 0, 'Normal': 1}
+        'recording_locations':  {'nan': float('nan'), 'PV': 0.0, 'TV': 1.0, 'AV': 2.0, 'MV': 3.0, 'Phc': 4.0},
+        'age':                  {'nan': float('nan'), 'Neonate': 2.0, 'Infant': 26.0, 'Child': 6*52.0, 'Adolescent': 15*52.0, 'Young Adult': 20*52.0}, #represent each age group as the approximate number of weeks for the middle of the age group
+        'sex':                  {'nan': float('nan'), 'Male': 0.0, 'Female': 1.0},
+        'pregnancy_status':     {'nan': float('nan'), 'True': 1.0, 'False': 0.0},
+        'murmur':               {'nan': float('nan'), 'Present': 1.0, 'Absent': 0.0, 'Unknown': 2.0},
+        'murmur_locations':     {'nan': float('nan'), 'PV': 0.0, 'TV': 1.0, 'AV': 2.0, 'MV': 3.0, 'Phc': 4.0},
+        'most_audible_location':{'nan': float('nan'), 'PV': 0.0, 'TV': 1.0, 'AV': 2.0, 'MV': 3.0, 'Phc': 4.0},
+        'sys_mur_timing':       {'nan': float('nan'), 'Early-systolic': 0.0, 'Holosystolic': 1.0, 'Mid-systolic': 2.0, 'Late-systolic': 3.0},
+        'sys_mur_shape':        {'nan': float('nan'), 'Crescendo': 0.0, 'Decrescendo': 1.0, 'Diamond': 2.0, 'Plateau': 3.0},
+        'sys_mur_pitch':        {'nan': float('nan'), 'Low': 0.0, 'Medium': 1.0, 'High': 2.0},
+        'sys_mur_grading':      {'nan': float('nan'), 'I/VI': 0.0, 'II/VI': 1.0, 'III/VI': 2.0},
+        'sys_mur_quality':      {'nan': float('nan'), 'Blowing': 0.0, 'Harsh': 1.0, 'Musical': 2.0},
+        'dia_mur_timing':       {'nan': float('nan'), 'Early-diastolic': 0.0, 'Holodiastolic': 1.0, 'Mid-diastolic': 2.0},
+        'dia_mur_shape':        {'nan': float('nan'), 'Crescendo': 0.0, 'Decrescendo': 1.0, 'Diamond': 2.0, 'Plateau': 3.0}, #note: only decresendo and plateau are actually used, other items are included for consistency with 'systolic murmur shape'
+        'dia_mur_pitch':        {'nan': float('nan'), 'Low': 0.0, 'Medium': 1.0, 'High': 2.0},
+        'dia_mur_grading':      {'nan': float('nan'), 'I/IV': 0.0, 'II/IV': 1.0, 'III/IV': 2.0},
+        'dia_mur_quality':      {'nan': float('nan'), 'Blowing': 0.0, 'Harsh': 1.0, 'Musical': 2.0}, #note: only blowing and harsh are actually used, other items are included for consistency with 'systolic murmur quality'
+        'outcome':              {'nan': float('nan'), 'Abnormal': 0.0, 'Normal': 1.0},
+        'campaign':             {'nan': float('nan'), 'CC2014': 0.0, 'CC2015': 1.0}
     }
