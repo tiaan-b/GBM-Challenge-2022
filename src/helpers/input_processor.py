@@ -50,7 +50,7 @@ def ingest_data(data_dir):
 
                 #add each audio file and corresponding recording location to data as its own line
                 #for all lines added, extend remaining columns and fill with the data collected for this file
-                num_locations = data['num_locations'][-1]
+                num_locations = int(data['num_locations'][-1])
                 for name in data:
                     if name=='audio_files':
                         data[name].extend(audio_files)
