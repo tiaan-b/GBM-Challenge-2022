@@ -69,13 +69,23 @@ def files_to_spectro(fileArray, path="", sr=4000):
     print("Generating spectrograms...")
     length = 0
     spectros = []
+    workingFileArray = []
+
+    #check whether fileArray is nested
+    if any(isinstance(x, list) for x in fileArray):
+        isNested = True
+        workingFileArray = fileArray
+    else:
+        isNested = False
+        #'cast' fileArray to nested array of length 1
+        workingFileArray.append(fileArray)
 
     #get length of nested array
-    for array in fileArray:
+    for array in workingFileArray:
         length += len(array)
 
     progress = tqdm.tqdm(total=length, desc="Generating spectrograms")
-    for array in fileArray:
+    for array in workingFileArray:
         patientSpectros = []
         for file in array:
             spectro = adt.wav_to_spectro(path + "/" + file, sr=sr)
@@ -83,6 +93,10 @@ def files_to_spectro(fileArray, path="", sr=4000):
             progress.update(1)
         spectros.append(patientSpectros)
     progress.close()
+
+    #return an un-nested list if the array passed as fileArray was also un-nested
+    if not isNested:
+        spectros = spectros[0]
 
     return spectros
 
