@@ -10,26 +10,16 @@ import tqdm
 
 def ingest_data(data_dir, cache_folder):
 
-    save_file_name = 'ingested_data.json'
+    cache = 'ingested_data.json'
     
     #check if data has already been ingested
     os.makedirs(cache_folder, exist_ok=True)
-    data_is_saved = False
-    #check if save file exists
-    if save_file_name in os.listdir(cache_folder):
-        saved_data = pl.read_json(cache_folder + '/' + save_file_name)
-        #check if saved data matches the desired data
-        saved_audio_files = saved_data.get_column('audio_files').to_list()
-        saved_spectros = saved_data.get_column('spectrogram').to_list()
-        desired_audio_files = [x for x in os.listdir(data_dir) if x.endswith('.wav')]
-        desired_spectros = [cache_folder + '/spectrograms/' + x.replace('.wav', '.npy') for x in desired_audio_files]
-        if set(saved_audio_files) == set(desired_audio_files) and set(saved_spectros) == set(desired_spectros):
-            data_is_saved = True
+    data_is_saved = __check_cache(data_dir, cache_folder, cache)
     
     #load df from save file if it exists, otherwise generate df from raw data
     if data_is_saved:
-        print('loading data from save file: ', cache_folder + '/' + save_file_name)
-        df = saved_data
+        print('loading data from save file: ', cache_folder + '/' + cache)
+        df = pl.read_json(cache_folder + '/' + cache)
     else:
         print("Ingesting data from ", data_dir)
         # we use the deepcopy function to avoid overwriting the original clinical_iterables
@@ -86,10 +76,9 @@ def ingest_data(data_dir, cache_folder):
 
         #get spectrogram for each wav file
         data['spectrogram'] = files_to_spectro(data['audio_files'], path=data_dir, output_folder=cache_folder+'/spectrograms')
-
         #store data as a dataframe
         df = pl.DataFrame(data)
-        df.write_json(cache_folder + '/' + save_file_name)
+        df.write_json(cache_folder + '/' + cache)
         
     return df
 
@@ -132,9 +121,16 @@ def files_to_spectro(fileArray, path="", output_folder="", sr=4000):
 
     return spectros
 
-            
-
-
-    
-
-    
+def __check_cache(data_dir, cache_folder, cache):
+    data_is_saved = False
+    #check if save file exists
+    if cache in os.listdir(cache_folder):
+        saved_data = pl.read_json(cache_folder + '/' + cache)
+        #check if saved data matches the desired data
+        saved_audio_files = saved_data.get_column('audio_files').to_list()
+        saved_spectros = os.listdir(cache_folder + '/spectrograms')
+        desired_audio_files = [x for x in os.listdir(data_dir) if x.endswith('.wav')]
+        desired_spectros = [x.replace('.wav', '.npy') for x in desired_audio_files]
+        if set(saved_audio_files) == set(desired_audio_files) and set(desired_spectros).issubset(set(saved_spectros)):
+            data_is_saved = True
+    return data_is_saved
