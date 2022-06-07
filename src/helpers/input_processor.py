@@ -32,6 +32,8 @@ def ingest_data(data_dir, cache_dir, encode_data=False):
         data = copy.deepcopy(clinical_data)
 
         #loop through txt files in directory
+        total_txt_files = len([x for x in os.listdir(data_dir) if x.endswith('.txt')])
+        progress = tqdm.tqdm(total=total_txt_files, desc="Reading from .txt files in "+data_dir)
         for file in os.listdir(data_dir):
             if file.endswith(".txt"):
                 # open text file
@@ -45,7 +47,7 @@ def ingest_data(data_dir, cache_dir, encode_data=False):
                     data['num_locations'].append(int(line[1]))
                     data['sampling_frequency'].append(int(line[2]))
                     
-                    # loop through each line to check if it maches with an iterables or if it contains a wav file
+                    # loop through each line to check if it matches with an iterables or if it contains a wav file
                     audio_files = []
                     recording_locations = []
                     for line in f:
@@ -64,22 +66,16 @@ def ingest_data(data_dir, cache_dir, encode_data=False):
                                     # add the value to the data
                                     data[iterable].append(value)
                                     break
-
-                    #add each audio file and corresponding recording location to data as its own line
-                    #for all lines added, extend remaining columns and fill with the data collected for this file
-                    num_locations = data['num_locations'][-1]
-                    for column in data:
-                        if column=='audio_files':
-                            data[column].extend(audio_files)
-                        elif column=='recording_locations':
-                            data[column].extend(recording_locations)
-                        else:
-                            extend_by = num_locations - 1
-                            fill_with_value = data[column][-1]
-                            data[column].extend([fill_with_value for x in range(extend_by)])
+                                
+                    data['audio_files'].append(audio_files)
+                    data['recording_locations'].append(recording_locations)
+                    progress.update(1)
+        progress.close()
 
         #get spectrogram for each wav file
         data['spectrogram'] = files_to_spectro(data['audio_files'], path=data_dir, output_folder=cache_dir+'/spectrograms')
+        #explode data so that each audio file and its corresponding recording location, spectrogram is on its own line in data
+        data = reshapeData(data)
         #store data as a dataframe
         df = pl.DataFrame(data)
         df.write_json(cache_dir + '/' + cache)
@@ -89,6 +85,43 @@ def ingest_data(data_dir, cache_dir, encode_data=False):
         df = pl.DataFrame(encoded_data)
 
     return df
+
+
+def reshapeData(data):
+    #preprocessing
+    if isinstance(data, dict):
+        data_type = 'dict'
+        input_data = data.copy()
+    elif isinstance(data, polars.internals.frame.DataFrame):
+        data_type = 'DataFrame'
+        input_data = data.to_dict()
+    else:
+        raise Exception('data is of unsupported type "{}". Supported types include polars.internals.frame.DataFrame and dict'.format(data.type()))
+    sorted_data = {k:[] for k in input_data.keys()}
+    nested_data = ['audio_files', 'recording_locations', 'spectrogram']
+    
+    #iterate through each row in data
+    length = len(input_data['patient_id'])
+    progress = tqdm.tqdm(total=length, desc="Reshaping data")
+    for i in range(len(input_data['patient_id'])):
+        num_locations = input_data['num_locations'][i]
+        for column in input_data.keys():
+            if column in nested_data:
+                sorted_data[column].extend(input_data[column][i])
+            else:
+                fill_value = input_data[column][i]
+                sorted_data[column].extend([fill_value for x in range(num_locations)])
+        progress.update(1)
+    progress.close()
+
+    #decide what type of object to return
+    if data_type=='DataFrame':
+        out = pl.DataFrame(sorted_data)
+    else:
+        out = sorted_data
+
+    return out
+
 
 def files_to_spectro(fileArray, path="", output_folder="", sr=4000):
     length = 0
@@ -129,6 +162,7 @@ def files_to_spectro(fileArray, path="", output_folder="", sr=4000):
 
     return spectros
 
+
 def __checkCache(data_dir, cache_dir, cache):
     data_is_saved = False
     #check if save file exists
@@ -142,6 +176,7 @@ def __checkCache(data_dir, cache_dir, cache):
         if set(saved_audio_files) == set(desired_audio_files) and set(desired_spectros).issubset(set(saved_spectros)):
             data_is_saved = True
     return data_is_saved
+
 
 def encodeData(data):
     working_data = data.copy()
