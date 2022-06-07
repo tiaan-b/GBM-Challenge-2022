@@ -10,6 +10,7 @@ import tqdm
 
 def ingest_data(data_dir, cache_folder, encoded=False):
 
+    #file to store ingested data, inside cache_folder directory
     cache = 'ingested_data.json'
     
     #check if data has already been ingested and stored in cache
@@ -63,7 +64,7 @@ def ingest_data(data_dir, cache_folder, encoded=False):
 
                     #add each audio file and corresponding recording location to data as its own line
                     #for all lines added, extend remaining columns and fill with the data collected for this file
-                    num_locations = int(data['num_locations'][-1])
+                    num_locations = data['num_locations'][-1]
                     for name in data:
                         if name=='audio_files':
                             data[name].extend(audio_files)
