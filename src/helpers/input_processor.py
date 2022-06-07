@@ -7,20 +7,23 @@ from .lut import clinical_iterables, clinical_data, data_cipher
 import copy 
 import tqdm
 
+#returns dataframe storing comprehensive data (including spectrograms) for each audio file
+#data_dir       str     path to directory storing training data (.txt and .wav files for each subject, etc)
+#cache_dir      str     path to directory storing copy of ingested data (or, if it does not yet exist, where a copy will be stored)
+#encode_data    Bool    [OPTIONAL] whether the data should be encoded
+def ingest_data(data_dir, cache_dir, encode_data=False):
 
-def ingest_data(data_dir, cache_folder, encoded=False):
-
-    #file to store ingested data, inside cache_folder directory
+    #file to store ingested data, inside cache_dir directory
     cache = 'ingested_data.json'
     
     #check if data has already been ingested and stored in cache
-    os.makedirs(cache_folder, exist_ok=True)
-    data_is_saved = __checkCache(data_dir, cache_folder, cache)
+    os.makedirs(cache_dir, exist_ok=True)
+    data_is_saved = __checkCache(data_dir, cache_dir, cache)
     
     #load df from save file if it exists, otherwise generate df from raw data
     if data_is_saved:
-        print('loading data from save file: ', cache_folder + '/' + cache)
-        df = pl.read_json(cache_folder + '/' + cache)
+        print('loading data from save file: ', cache_dir + '/' + cache)
+        df = pl.read_json(cache_dir + '/' + cache)
     else:
         print("Ingesting data from ", data_dir)
         # we use the deepcopy function to avoid overwriting the original clinical_iterables
@@ -65,23 +68,23 @@ def ingest_data(data_dir, cache_folder, encoded=False):
                     #add each audio file and corresponding recording location to data as its own line
                     #for all lines added, extend remaining columns and fill with the data collected for this file
                     num_locations = data['num_locations'][-1]
-                    for name in data:
-                        if name=='audio_files':
-                            data[name].extend(audio_files)
-                        elif name=='recording_locations':
-                            data[name].extend(recording_locations)
+                    for column in data:
+                        if column=='audio_files':
+                            data[column].extend(audio_files)
+                        elif column=='recording_locations':
+                            data[column].extend(recording_locations)
                         else:
                             extend_by = num_locations - 1
-                            fill_with_value = data[name][-1]
-                            data[name].extend([fill_with_value for x in range(extend_by)])
+                            fill_with_value = data[column][-1]
+                            data[column].extend([fill_with_value for x in range(extend_by)])
 
         #get spectrogram for each wav file
-        data['spectrogram'] = files_to_spectro(data['audio_files'], path=data_dir, output_folder=cache_folder+'/spectrograms')
+        data['spectrogram'] = files_to_spectro(data['audio_files'], path=data_dir, output_folder=cache_dir+'/spectrograms')
         #store data as a dataframe
         df = pl.DataFrame(data)
-        df.write_json(cache_folder + '/' + cache)
+        df.write_json(cache_dir + '/' + cache)
 
-    if encoded:
+    if encode_data:
         encoded_data = encodeData(df.to_dict())
         df = pl.DataFrame(encoded_data)
 
@@ -126,14 +129,14 @@ def files_to_spectro(fileArray, path="", output_folder="", sr=4000):
 
     return spectros
 
-def __checkCache(data_dir, cache_folder, cache):
+def __checkCache(data_dir, cache_dir, cache):
     data_is_saved = False
     #check if save file exists
-    if cache in os.listdir(cache_folder):
-        saved_data = pl.read_json(cache_folder + '/' + cache)
+    if cache in os.listdir(cache_dir):
+        saved_data = pl.read_json(cache_dir + '/' + cache)
         #check if saved data matches the desired data
         saved_audio_files = saved_data.get_column('audio_files').to_list()
-        saved_spectros = os.listdir(cache_folder + '/spectrograms')
+        saved_spectros = os.listdir(cache_dir + '/spectrograms')
         desired_audio_files = [x for x in os.listdir(data_dir) if x.endswith('.wav')]
         desired_spectros = [x.replace('.wav', '.npy') for x in desired_audio_files]
         if set(saved_audio_files) == set(desired_audio_files) and set(desired_spectros).issubset(set(saved_spectros)):
@@ -145,18 +148,16 @@ def encodeData(data):
     cipher = data_cipher.copy()
 
     #cast numeric data to float type
-    # working_data['height'] = [float(x) for x in working_data['height']]
-    # working_data['weight'] = [float(x) for x in working_data['weight']]
-    for name in ['patient_id', 'num_locations', 'sampling_frequency', 'height', 'weight', 'additional_id']:
-        working_data[name] = [float(x) for x in working_data[name]]
+    for column in ['patient_id', 'num_locations', 'sampling_frequency', 'height', 'weight', 'additional_id']:
+        working_data[column] = [float(x) for x in working_data[column]]
 
     #for each entry in data['murmur_locations']: split into list, then encode each element of list using cipher
     mod_entry = lambda entry: [cipher['murmur_locations'][y] for y in entry.strip().split('+')]
     working_data['murmur_locations'] = [mod_entry(x) for x in working_data['murmur_locations']]
 
     #encode remaining data
-    for name in cipher:
-        if not name=='murmur_locations':
-            working_data[name] = [cipher[name][x] for x in working_data[name]]
+    for column in cipher:
+        if not column=='murmur_locations':
+            working_data[column] = [cipher[column][x] for x in working_data[column]]
 
     return working_data
