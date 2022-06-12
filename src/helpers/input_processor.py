@@ -3,11 +3,10 @@ from pydoc import cli
 import polars as pl
 import numpy as np
 import helpers.audio_tools as adt
-from .lut import clinical_iterables, clinical_data, data_cipher
-import copy 
+import helpers.lut as lut
 import tqdm
 
-def loadData(data_dir, cache_dir, encode_data=False):
+def loadTrainingData(data_dir, cache_dir, encode_data=False):
     #file to store ingested data, inside cache_dir directory
     cache = 'ingested_data.json'
     
@@ -47,10 +46,8 @@ def loadData(data_dir, cache_dir, encode_data=False):
 
 def ingest_data(data_dir):
 
-    # we use the deepcopy function to avoid overwriting the original clinical_iterables
-    # otherwise this creates a super hard to find bug where running the code multiple times
-    # will result in the output being different each time
-    data = copy.deepcopy(clinical_data)
+    data = lut.getClinicalData()
+    clinical_iterables = lut.getClinicalIterables()
 
     #loop through txt files in directory
     total_txt_files = len([x for x in os.listdir(data_dir) if x.endswith('.txt')])
@@ -93,7 +90,14 @@ def ingest_data(data_dir):
                 progress.update(1)
     progress.close()
 
+    #save data in polars Dataframe
     df = pl.DataFrame(data)
+
+    #split each element in murmur_locations (type=str) into list
+    df.replace(
+        'murmur_locations',
+        df.get_column('murmur_locations').str.split(by='+')
+    )
 
     return df
 
@@ -200,27 +204,26 @@ def encodeData(data):
     if not isinstance(data, pl.internals.frame.DataFrame):
         raise Exception('data is of unsupported type "{}". Supported types include polars.internals.frame.DataFrame'.format(data.type()))
 
-    cipher = data_cipher.copy()
+    cipher = lut.getCipher()
     data_columns = data.columns
     numeric_data = [x for x in data_columns if x in ['patient_id', 'num_locations', 'sampling_frequency', 'height', 'weight', 'additional_id']]
     unencoded_data = [x for x in data_columns if x in ['audio_files', 'spectrogram']]
     cipher_friendly_data = [x for x in data_columns if x in cipher.keys() and x!='murmur_locations']
 
     out = data.select([
-        #include unencoded data
-        pl.col(unencoded_data),
-
         #cast numeric data to float type
         pl.col(numeric_data)
         .cast(pl.datatypes.Float64),
 
-        #for each element in murmur_locations: split into list, then encode each element of list using cipher
-        pl.col('murmur_locations').str.split(by='+')
-        .arr.eval(pl.element().apply(lambda x: cipher['murmur_locations'][x])),
+        #in murmur_locations: encode each element of each list in column using cipher
+        pl.col('murmur_locations').arr.eval(pl.element().apply(lambda x: cipher['murmur_locations'][x])),
 
         #encode remaining data using cipher
         pl.col(cipher_friendly_data)
-        .map(lambda x: __applyCipher(x, cipher))
+        .map(lambda x: __applyCipher(x, cipher)),
+
+        #include unencoded data
+        pl.col(unencoded_data)
     ])
 
     return out
