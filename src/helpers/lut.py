@@ -11,17 +11,17 @@ import copy
 def getClinicalData():
     clinical_data = {
             'patient_id':           [],
-            'num_locations':        [],
+            'total_locations':      [],
             'sampling_frequency':   [],
-            'audio_files':          [],
-            'recording_locations':  [],
+            'audio_file':           [],
+            'recording_location':   [],
             #begin named features
             'age':                  [],
             'sex':                  [],
             'height':               [],
             'weight':               [],
             'pregnancy_status':     [],
-            'murmur':               [],
+            'murmur_in_patient':    [],
             'murmur_locations':     [],
             'most_audible_location':[],
             'sys_mur_timing':       [],
@@ -47,7 +47,7 @@ def getClinicalIterables():
         'height':               '#Height',
         'weight':               '#Weight',
         'pregnancy_status':     '#Pregnancy status',
-        'murmur':               '#Murmur',
+        'murmur_in_patient':    '#Murmur',
         'murmur_locations':     '#Murmur locations',
         'most_audible_location':'#Most audible location',
         'sys_mur_timing':       '#Systolic murmur timing',
@@ -68,11 +68,11 @@ def getClinicalIterables():
 
 def getCipher():
     data_cipher = {
-            'recording_locations':  {'nan': float('nan'), 'PV': 0.0, 'TV': 1.0, 'AV': 2.0, 'MV': 3.0, 'Phc': 4.0},
+            'recording_location':   {'nan': float('nan'), 'PV': 0.0, 'TV': 1.0, 'AV': 2.0, 'MV': 3.0, 'Phc': 4.0},
             'age':                  {'nan': float('nan'), 'Neonate': 2.0, 'Infant': 26.0, 'Child': 6*52.0, 'Adolescent': 15*52.0, 'Young Adult': 20*52.0}, #represent each age group as the approximate number of weeks for the middle of the age group
             'sex':                  {'nan': float('nan'), 'Male': 0.0, 'Female': 1.0},
             'pregnancy_status':     {'nan': float('nan'), 'True': 1.0, 'False': 0.0},
-            'murmur':               {'nan': float('nan'), 'Present': 1.0, 'Absent': 0.0, 'Unknown': 2.0},
+            'murmur_in_patient':    {'nan': float('nan'), 'Present': 1.0, 'Absent': 0.0, 'Unknown': 2.0},
             'murmur_locations':     {'nan': float('nan'), 'PV': 0.0, 'TV': 1.0, 'AV': 2.0, 'MV': 3.0, 'Phc': 4.0},
             'most_audible_location':{'nan': float('nan'), 'PV': 0.0, 'TV': 1.0, 'AV': 2.0, 'MV': 3.0, 'Phc': 4.0},
             'sys_mur_timing':       {'nan': float('nan'), 'Early-systolic': 0.0, 'Holosystolic': 1.0, 'Mid-systolic': 2.0, 'Late-systolic': 3.0},

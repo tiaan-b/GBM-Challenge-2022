@@ -17,24 +17,17 @@ def loadTrainingData(data_dir, cache_dir, encode_data=False):
     #load df from save file if it exists, otherwise generate df from raw data
     if data_is_saved:
         print('loading data from save file: ', cache_dir + '/' + cache)
-
         df = pl.read_json(cache_dir + '/' + cache)
     else:
         print("loading raw data from ", data_dir)
-        
         df = ingest_data(data_dir)
         #get spectrogram for each wav file
-        length = df.height
-        progress = tqdm.tqdm(total=length, desc="Generating spectrograms")
-        df = df.with_column(
-            pl.col('audio_files')
-            .apply(lambda x: __function_with_logUpdater(progress, files_to_spectro(x, path=data_dir, output_folder=cache_dir+'/spectrograms')))
-            .alias('spectrogram')
-        )
-        progress.close()
-        #explode data so that each audio file and its corresponding recording location, spectrogram is on its own line in data
-        nested_data = ['audio_files', 'recording_locations', 'spectrogram']
+        df = getSpectrogram(df, data_dir, cache_dir)
+        #explode df so that each audio file and its corresponding recording location, spectrogram is on its own line
+        nested_data = ['audio_file', 'recording_location', 'spectrogram']
         df = df.explode(nested_data)
+        #get murmur_in_recording (whether a murmur is present in the corresponding recording)
+        df = getMurmurInRecording(df)
         #save df to file. Future calls to loadData will load the df from this file
         df.write_json(cache_dir + '/' + cache)
 
@@ -62,7 +55,7 @@ def ingest_data(data_dir):
                 # split line into list
                 line = line.strip().split(" ")
                 data['patient_id'].append(int(line[0]))
-                data['num_locations'].append(int(line[1]))
+                data['total_locations'].append(int(line[1]))
                 data['sampling_frequency'].append(int(line[2]))
                 
                 # loop through each line to check if it matches with an iterables or if it contains a wav file
@@ -85,8 +78,8 @@ def ingest_data(data_dir):
                                 data[iterable].append(value)
                                 break
 
-                data['audio_files'].append(audio_files)
-                data['recording_locations'].append(recording_locations)
+                data['audio_file'].append(audio_files)
+                data['recording_location'].append(recording_locations)
                 progress.update(1)
     progress.close()
 
@@ -113,13 +106,13 @@ def reshapeData(data):
     else:
         raise Exception('data is of unsupported type "{}". Supported types include polars.internals.frame.DataFrame and dict'.format(data.type()))
     sorted_data = {k:[] for k in input_data.keys()}
-    nested_data = ['audio_files', 'recording_locations', 'spectrogram']
+    nested_data = ['audio_file', 'recording_location', 'spectrogram']
     
     #iterate through each row in data
     length = len(input_data['patient_id'])
     progress = tqdm.tqdm(total=length, desc="Reshaping data")
     for i in range(len(input_data['patient_id'])):
-        num_locations = input_data['num_locations'][i]
+        num_locations = input_data['total_locations'][i]
         for column in input_data.keys():
             if column in nested_data:
                 sorted_data[column].extend(input_data[column][i])
@@ -190,7 +183,7 @@ def __checkCache(data_dir, cache_dir, cache):
     if cache in os.listdir(cache_dir):
         saved_data = pl.read_json(cache_dir + '/' + cache)
         #check if saved data matches the desired data
-        saved_audio_files = saved_data.get_column('audio_files').to_list()
+        saved_audio_files = saved_data.get_column('audio_file').to_list()
         saved_spectros = os.listdir(cache_dir + '/spectrograms')
         desired_audio_files = [x for x in os.listdir(data_dir) if x.endswith('.wav')]
         desired_spectros = [x.replace('.wav', '.npy') for x in desired_audio_files]
@@ -206,8 +199,8 @@ def encodeData(data):
 
     cipher = lut.getCipher()
     data_columns = data.columns
-    numeric_data = [x for x in data_columns if x in ['patient_id', 'num_locations', 'sampling_frequency', 'height', 'weight', 'additional_id']]
-    unencoded_data = [x for x in data_columns if x in ['audio_files', 'spectrogram']]
+    numeric_data = [x for x in data_columns if x in ['patient_id', 'total_locations', 'sampling_frequency', 'height', 'weight', 'additional_id']]
+    unencoded_data = [x for x in data_columns if x in ['audio_file', 'spectrogram']]
     cipher_friendly_data = [x for x in data_columns if x in cipher.keys() and x!='murmur_locations']
 
     out = data.select([
@@ -231,4 +224,80 @@ def encodeData(data):
 def __applyCipher(col, cipher):
     col_name = col.name
     out = col.apply(lambda x: cipher[col_name][x])
+    return out
+
+
+def reorderCols(data):
+    #assume no duplicate column names in data
+    all_cols = data.columns
+
+    #desired order of columns
+    ordered_cols = [
+        'patient_id',           
+        'murmur_in_patient',               
+        'audio_file', 
+        'spectrogram',
+        'murmur_in_recording',         
+        'recording_location',  
+        'sampling_frequency',   
+        'total_locations',        
+        'murmur_locations',     
+        'most_audible_location',
+        'outcome',              
+        'age',                  
+        'sex',                  
+        'height',               
+        'weight',               
+        'pregnancy_status',     
+        'sys_mur_timing',       
+        'sys_mur_shape',        
+        'sys_mur_pitch',        
+        'sys_mur_grading',      
+        'sys_mur_quality',      
+        'dia_mur_timing',       
+        'dia_mur_shape',        
+        'dia_mur_pitch',        
+        'dia_mur_grading',      
+        'dia_mur_quality',      
+        'campaign',             
+        'additional_id',        
+    ]
+    ordered_cols = [x for x in ordered_cols if x in all_cols]
+
+    #remaining columns with no specified order
+    unordered_cols = sorted(set(all_cols).difference(set(ordered_cols)))
+
+    #columns are ordered as specified in order_cols.
+    #remaining columns are included afterwards.
+    out = data.select([*ordered_cols, *unordered_cols])
+    
+    return out
+
+
+def getMurmurInRecording(data):
+    out = data.with_column(
+        pl.when(pl.col('murmur_in_patient')==('Absent' or 'Unknown'))
+        .then(pl.col('murmur_in_patient'))
+        .when(pl.all([
+            pl.col('murmur_in_patient')=='Present',
+            pl.col('recording_location').is_in('murmur_locations')
+        ]))
+        .then('Present')
+        .otherwise('Absent')
+        .alias('murmur_in_recording')
+    )
+
+    return out
+
+
+def getSpectrogram(data, data_dir, cache_dir):
+    length = data.height
+    progress = tqdm.tqdm(total=length, desc="Generating spectrograms")
+    out = data.with_column(
+        pl.col('audio_file')
+        .apply(lambda x: __function_with_logUpdater(progress, files_to_spectro(x, path=data_dir, output_folder=cache_dir+'/spectrograms')))
+        .alias('spectrogram')
+    )
+    progress.close()
+    
     return out
