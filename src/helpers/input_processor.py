@@ -20,14 +20,14 @@ def loadTrainingData(data_dir, cache_dir, encode_data=False):
         df = pl.read_json(cache_dir + '/' + cache)
     else:
         print("loading raw data from ", data_dir)
-        df = ingest_data(data_dir)
-        #get spectrogram for each wav file
-        df = getSpectrogram(df, data_dir, cache_dir)
-        #explode df so that each audio file and its corresponding recording location, spectrogram is on its own line
-        nested_data = ['audio_file', 'recording_location', 'spectrogram']
-        df = df.explode(nested_data)
-        #get murmur_in_recording (whether a murmur is present in the corresponding recording)
-        df = getMurmurInRecording(df)
+        nested_data = ['audio_file', 'recording_location']
+        df = (
+            ingest_data(data_dir)
+            .explode(nested_data)                       #explode df so that each audio file and its corresponding recording location is on its own line
+            .pipe(getSpectrogram, data_dir, cache_dir)  #get spectrogram for each wav file
+            .pipe(getMurmurInRecording)                 #get murmur_in_recording (whether a murmur is present in the corresponding recording)
+            .pipe(reorderCols)
+        )
         #save df to file. Future calls to loadData will load the df from this file
         df.write_json(cache_dir + '/' + cache)
 
@@ -135,6 +135,14 @@ def __function_with_logUpdater(progress, func):
     progress.update(1)
     out = func
     return out
+
+
+def file_to_spectro(file, path="", output_folder='', sr =4000):
+    spectro = adt.wav_to_spectro(path + "/" + file, sr=sr)
+    spectro_file = output_folder + '/' + file.replace('.wav', '.npy')
+    np.save(spectro_file, spectro)
+
+    return spectro_file
 
 
 def files_to_spectro(fileArray, path="", output_folder="", sr=4000):
@@ -295,7 +303,7 @@ def getSpectrogram(data, data_dir, cache_dir):
     progress = tqdm.tqdm(total=length, desc="Generating spectrograms")
     out = data.with_column(
         pl.col('audio_file')
-        .apply(lambda x: __function_with_logUpdater(progress, files_to_spectro(x, path=data_dir, output_folder=cache_dir+'/spectrograms')))
+        .apply(lambda x: __function_with_logUpdater(progress, file_to_spectro(x, path=data_dir, output_folder=cache_dir+'/spectrograms')))
         .alias('spectrogram')
     )
     progress.close()
