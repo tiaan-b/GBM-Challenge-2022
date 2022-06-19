@@ -72,8 +72,8 @@ def getCipher():
             'age':                  {'nan': float('nan'), 'Neonate': 2.0, 'Infant': 26.0, 'Child': 6*52.0, 'Adolescent': 15*52.0, 'Young Adult': 20*52.0}, #represent each age group as the approximate number of weeks for the middle of the age group
             'sex':                  {'nan': float('nan'), 'Male': 0.0, 'Female': 1.0},
             'pregnancy_status':     {'nan': float('nan'), 'True': 1.0, 'False': 0.0},
-            'murmur_in_patient':    {'nan': float('nan'), 'Present': 1.0, 'Absent': 0.0, 'Unknown': 2.0},
-            'murmur_in_recording':  {'nan': float('nan'), 'Present': 1.0, 'Absent': 0.0, 'Unknown': 2.0},
+            'murmur_in_patient':    {'nan': float('nan'), 'Present': 1.0, 'Absent': 0.0, 'Unknown': 0.5},
+            'murmur_in_recording':  {'nan': float('nan'), 'Present': 1.0, 'Absent': 0.0, 'Unknown': 0.5},
             'murmur_locations':     {'nan': float('nan'), 'PV': 0.0, 'TV': 1.0, 'AV': 2.0, 'MV': 3.0, 'Phc': 4.0},
             'most_audible_location':{'nan': float('nan'), 'PV': 0.0, 'TV': 1.0, 'AV': 2.0, 'MV': 3.0, 'Phc': 4.0},
             'sys_mur_timing':       {'nan': float('nan'), 'Early-systolic': 0.0, 'Holosystolic': 1.0, 'Mid-systolic': 2.0, 'Late-systolic': 3.0},
