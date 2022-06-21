@@ -170,3 +170,5 @@ src/out/*
 !src/out/README.md
 
 src/scrap_paper.py
+
+src/logs
