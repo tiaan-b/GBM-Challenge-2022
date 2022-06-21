@@ -32,6 +32,9 @@ def loadTrainingData(data_dir, encode_data=False):
         #save df to file. Future calls to loadData will load the df from this file
         df.write_json(cache_dir + '/' + cache)
 
+    #load spectrograms from files into df
+    df = df.with_column(pl.col('spectrogram').apply(lambda x: np.load(x)))
+
     if encode_data:
         df = encodeData(df)
 
@@ -88,10 +91,7 @@ def ingest_data(data_dir):
     df = pl.DataFrame(data)
 
     #split each element in murmur_locations (type=str) into list
-    df.replace(
-        'murmur_locations',
-        df.get_column('murmur_locations').str.split(by='+')
-    )
+    df = df.with_column(pl.col('murmur_locations').str.split(by='+'))
 
     return df
 
