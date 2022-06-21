@@ -172,3 +172,5 @@ src/out/*
 src/scrap_paper.py
 
 src/data/spectrograms/*
+
+src/comparing_spectrograms/*

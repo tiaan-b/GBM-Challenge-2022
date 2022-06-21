@@ -22,6 +22,7 @@ def printSpectro(spectro, title='', sr=4000):
     
     librosa.display.specshow(spectro, x_axis='s', y_axis='linear', sr=sr)
 
+    plt.clim(-60, 40)
     plt.colorbar(format="%+2.f dB")
 
     if not title=='':
