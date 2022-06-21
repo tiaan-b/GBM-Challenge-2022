@@ -6,8 +6,9 @@ import helpers.audio_tools as adt
 import helpers.lut as lut
 import tqdm
 
-def loadTrainingData(data_dir, cache_dir, encode_data=False):
+def loadTrainingData(data_dir, encode_data=False):
     #file to store ingested data, inside cache_dir directory
+    cache_dir = 'data'
     cache = 'ingested_data.json'
     
     #check if data has already been ingested and stored in cache
@@ -125,6 +126,7 @@ def getSpectrogram(data, data_dir, cache_dir):
 
 
 def file_to_spectro(file, path="", output_folder='', sr =4000):
+    os.makedirs(output_folder, exist_ok=True)
     spectro = adt.wav_to_spectro(path + "/" + file, sr=sr)
     spectro_file = output_folder + '/' + file.replace('.wav', '.npy')
     np.save(spectro_file, spectro)
