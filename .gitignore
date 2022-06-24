@@ -175,3 +175,5 @@ src/logs
 src/data/spectrograms/*
 
 src/comparing_spectrograms/*
+
+src/cache/*
