@@ -36,7 +36,7 @@ def getClinicalData():
             'dia_mur_quality':      [],
             'outcome':              [],
             'campaign':             [],
-            'additional_id':        []
+            'additional_id':        [],
         }
     return copy.deepcopy(clinical_data)
 
