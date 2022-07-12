@@ -8,8 +8,6 @@ import tqdm
 
 def ingest_data(data_dir, rebuild=False):
 
-    spectro_cache = adt.dir_to_spectro(data_dir, rebuild=rebuild)
-
     data = lut.getClinicalData()
     clinical_iterables = lut.getClinicalIterables()
 
