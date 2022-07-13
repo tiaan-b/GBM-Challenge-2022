@@ -7,3 +7,4 @@ polars==0.13.40
 scikit_learn==1.1.1
 scipy==1.7.3
 tqdm==4.63.0
+pyarrow==8.0.0
