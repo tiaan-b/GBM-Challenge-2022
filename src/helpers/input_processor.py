@@ -219,7 +219,7 @@ def __ingest_data(data_dir):
 
 def __getMurmurInRecording(data):
     out = data.with_column(
-        pl.when(pl.col('murmur_in_patient')==('Absent' or 'Unknown'))
+        pl.when(pl.col('murmur_in_patient').is_in(['Absent', 'Unknown']))
         .then(pl.col('murmur_in_patient'))
         .when(pl.all([
             pl.col('murmur_in_patient')=='Present',
