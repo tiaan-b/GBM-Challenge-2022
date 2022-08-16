@@ -157,6 +157,18 @@ def reorderCols(data):
     out = data.select([*ordered_cols, *unordered_cols])
     
     return out
+    
+
+def splitDataframe(df, split_ratio=0.8):
+    total_size = df.height
+    head_size = round(split_ratio * total_size)
+    tail_size = total_size - head_size
+
+    df = df.sample(frac=1.0, shuffle=True)
+    head_df = df.head(head_size)
+    tail_df = df.tail(tail_size)
+    
+    return head_df, tail_df
 
 ########################################################################
 #   PRIVATE FUNCTIONS
