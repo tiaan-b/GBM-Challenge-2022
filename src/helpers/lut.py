@@ -1,5 +1,5 @@
 ###########################################################################################################
-# THIS CONTAINS LOOK UP TABLES FOR OTHER FUNCTIONS TO MINIMIZE THERE SIZE AND TO MAKE SHARING CODE EASIER #
+# THIS CONTAINS LOOK UP TABLES FOR OTHER FUNCTIONS TO MINIMIZE THEIR SIZE AND TO MAKE SHARING CODE EASIER #
 ###########################################################################################################
 
 import copy
@@ -14,6 +14,7 @@ def getClinicalData():
             'total_locations':      [],
             'sampling_frequency':   [],
             'audio_file':           [],
+            'annotation_file':      [],
             'recording_location':   [],
             #begin named features
             'age':                  [],
