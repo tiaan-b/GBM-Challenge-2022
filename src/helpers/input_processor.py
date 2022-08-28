@@ -25,15 +25,16 @@ def loadTrainingData(data_dir, encode_data=False):
         df = pl.read_json(cache_dir + '/' + cache_file)
     else:
         print("loading raw data from ", data_dir)
-        nested_data = ['audio_file', 'recording_location']
+        nested_data = ['audio_file', 'annotation_file', 'recording_location']
         df = (
             __ingest_data(data_dir)
             .explode(nested_data)           #explode df so that each audio file and its corresponding recording location is on its own line
             .pipe(__getMurmurInRecording)   #get murmur_in_recording (whether a murmur is present in the corresponding recording)
+            .pipe(__getSegments, data_dir)  #get start, end points of segments in audio files
             .pipe(reorderCols)
         )
-        #save df to file. Future calls to loadData will load the df from this file
-        df.write_json(cache_dir + '/' + cache_file)
+        # #save df to file. Future calls to loadData will load the df from this file
+        # df.write_json(cache_dir + '/' + cache_file)
 
     if encode_data:
         df = encodeData(df)
@@ -120,6 +121,8 @@ def reorderCols(data):
         'patient_id',           
         'murmur_in_patient',               
         'audio_file', 
+        'annotation_file',
+        'segments',
         'spectrogram',
         'mfcc',
         'murmur_in_recording',         
@@ -197,13 +200,15 @@ def __ingest_data(data_dir):
                 
                 # loop through each line to check if it matches with an iterables or if it contains a wav file
                 audio_files = []
+                annotation_files = []
                 recording_locations = []
                 for line in f:
                     # check if line contains .wav
                     if ".wav" in line:
                         # split the line 
-                        line_split = line.split(" ")
+                        line_split = line.strip().split(" ")
                         audio_files.append(line_split[2]) 
+                        annotation_files.append(line_split[3])
                         recording_locations.append(line_split[0]) 
                     #loop through iterables to check if line matches with any of them
                     else:
@@ -216,6 +221,7 @@ def __ingest_data(data_dir):
                                 break
 
                 data['audio_file'].append(audio_files)
+                data['annotation_file'].append(annotation_files)
                 data['recording_location'].append(recording_locations)
                 progress.update(1)
     progress.close()
@@ -242,6 +248,39 @@ def __getMurmurInRecording(data):
         .alias('murmur_in_recording')
     )
 
+    return out
+
+
+def __readAnnotationFile(file_path):
+    # Store file contents with 3 columns and n rows as a nested list
+    with open(file_path, 'r') as f:
+        file = [line.strip().split() for line in f]
+
+    # Iterate through each line and identify every occurence of the sequence '1,2,3,4' in column 3
+    # Each of these sequences corresponds to one time segment
+    # Store the start time (column 1) and the end time (column 2) of every segment in a list: [start, end]
+    # Store each [start, end] in 'segments'
+    segments = []
+    line = 0
+    while line<len(file)-3:
+        for i in range(4):
+            if int(file[line+i][2]) != 1+i:
+                line += 1
+                break
+        else:
+            segments.append([float(file[line][0]), float(file[line+3][1])])
+            line += 4
+
+    return segments
+
+
+def __getSegments(data, data_dir):
+    progress = tqdm.tqdm(total=data.height, desc='Getting audio file segmentation information')
+    out = data.with_column(
+        pl.col('annotation_file').apply(lambda x: os.path.join(data_dir, x))
+        .apply(lambda x: __function_with_logUpdater(progress, __readAnnotationFile(x)))
+        .alias('segments')
+    )
     return out
 
 
