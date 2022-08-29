@@ -33,8 +33,11 @@ def loadTrainingData(data_dir, encode_data=False):
             .pipe(__getSegments, data_dir)  #get start, end points of segments in audio files
             .pipe(reorderCols)
         )
-        # #save df to file. Future calls to loadData will load the df from this file
-        # df.write_json(cache_dir + '/' + cache_file)
+        #save df to file. Future calls to loadData will load the df from this file
+        df.write_json(cache_dir + '/' + cache_file)
+
+    #filter out data missing segment annotations
+    df = df.filter(pl.col('segments').arr.first() != "")
 
     if encode_data:
         df = encodeData(df)
@@ -258,8 +261,7 @@ def __readAnnotationFile(file_path):
 
     # Iterate through each line and identify every occurence of the sequence '1,2,3,4' in column 3
     # Each of these sequences corresponds to one time segment
-    # Store the start time (column 1) and the end time (column 2) of every segment in a list: [start, end]
-    # Store each [start, end] in 'segments'
+    # Store the start time (column 1) and the end time (column 2) of every segment in a list as a string seperated by '+'
     segments = []
     line = 0
     while line<len(file)-3:
@@ -268,12 +270,16 @@ def __readAnnotationFile(file_path):
                 line += 1
                 break
         else:
-            segments.append([float(file[line][0]), float(file[line+3][1])])
+            start, end = file[line][0], file[line+3][1]
+            segments.append(f'{start}+{end}')
             line += 4
+
+    if len(segments)<1:
+        segments = [""]
 
     return segments
 
-
+#filters out unsegmented data
 def __getSegments(data, data_dir):
     progress = tqdm.tqdm(total=data.height, desc='Getting audio file segmentation information')
     out = data.with_column(
@@ -281,6 +287,7 @@ def __getSegments(data, data_dir):
         .apply(lambda x: __function_with_logUpdater(progress, __readAnnotationFile(x)))
         .alias('segments')
     )
+    progress.close()
     return out
 
 
@@ -294,8 +301,8 @@ def __file_to_spectro(file, path="", output_folder='', sr =4000):
 
 
 def __function_with_logUpdater(progress, func):
-    progress.update(1)
     out = func
+    progress.update(1)
     return out
 
 #assumes data_dir and cache_dir both exist
